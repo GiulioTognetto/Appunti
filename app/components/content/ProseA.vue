@@ -1,24 +1,20 @@
-<!-- components/content/ProseA.vue -->
 <script setup lang="ts">
 const props = defineProps<{
   href?: string
   target?: string
 }>()
 
-const route = useRoute()
-
 const computedHref = computed(() => {
   if (!props.href) return '#'
 
-  // Se è un URL esterno
-  if (props.href.startsWith('http://') || props.href.startsWith('https://')) {
+  // Gestione link esterni
+  if (props.href.startsWith('http://') || props.href.startsWith('https://') || props.href.startsWith('mailto:')) {
     return props.href
   }
 
-  // Se è una rotta basata su hash /p/a1b2c3d4, aggiunge la posizione corrente per il contesto
-  if (props.href.startsWith('/p/') || props.href.startsWith('p/')) {
-    const basePath = props.href.startsWith('/') ? props.href : `/${props.href}`
-    return `${basePath}?from=${encodeURIComponent(route.path)}`
+  // Garantisce che i link interni partano dalla root
+  if (props.href.startsWith('p/')) {
+    return `/${props.href}`
   }
 
   return props.href

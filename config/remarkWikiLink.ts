@@ -1,3 +1,4 @@
+// config/remarkWikiLink.ts
 import { sha256 } from 'js-sha256'
 
 // Normalizza la stringa rimuovendo accenti, spazi e caratteri speciali
@@ -8,9 +9,8 @@ export const normalizeString = (str: string): string =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
 
-// Genera uno slug pulito per la leggibilità e la SEO (es. "Valore Assoluto" -> "valore-assoluto")
+// Genera uno slug pulito ed elegante per la SEO (es. "Valore Assoluto" -> "valore-assoluto")
 export const slugify = (str: string): string => {
-  // Estrae l'ultimo segmento se è presente un percorso (es. da "TOLC-I/Valore Assoluto" prende "Valore Assoluto")
   const fileName = str.split('/').pop() ?? str
 
   return normalizeString(fileName)
@@ -21,7 +21,7 @@ export const slugify = (str: string): string => {
     .replace(/^-+|-+$/g, '')
 }
 
-// Genera l'hash SHA-256 univoco a 10 caratteri
+// Genera l'hash SHA-256 deterministico a 10 caratteri dal percorso del file
 export const generateHash = (str: string): string =>
   sha256(normalizeString(str)).substring(0, 10)
 
@@ -29,16 +29,16 @@ export const wikiLinkOptions = {
   aliasDivider: '|',
 
   pageResolver: (name: string) => {
-    // 1. Estrae la parte del percorso prima del '|'
+    // 1. Prende il percorso del file ignorando l'alias dopo '|'
     const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    // 2. Genera lo slug umano per la SEO
+    // 2. Genera lo slug umano per la SEO dal nome del file
     const seoSlug = slugify(rawTarget)
 
-    // 3. Genera l'hash deterministico univoco
+    // 3. Genera l'hash univoco basato sul percorso completo
     const hash = generateHash(rawTarget)
 
-    // Se lo slug è vuoto (es. se la stringa conteneva solo simboli), usa solo l'hash
+    // Unisce lo slug umano con l'hash a 10 caratteri
     const fullSlug = seoSlug ? `${seoSlug}-${hash}` : hash
 
     return [`p/${fullSlug}`]
