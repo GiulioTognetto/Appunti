@@ -1,25 +1,33 @@
+// config/markdown.ts
 export const wikiLinkOptions = {
   aliasDivider: '|',
+
+  // pageResolver: lavora con stringhe IN CHIARO per matchare il file system
   pageResolver: (name: string) => {
-    // 1. Prende solo il percorso del file ignorando l'alias dopo '|'
-    const cleanName = name.split('|')[0] ?? ''.trim()
+    const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    // 2. Mappa ciascun segmento del percorso
-    const pathSegments = cleanName
+    // Normalizziamo solo il case (lowercase) per matchare il comportamento case-insensitive di Obsidian
+    const cleanPath = rawTarget
       .split('/')
-      .map((segment) =>
-        segment
-          .trim()
-          // Normalizza i caratteri accentati (es. "Università" -> "Universita")
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          // Sostituisce gli spazi con trattini
-          .replace(/\s+/g, '-')
-          // Rimuove tutti i caratteri speciali rimanenti
-          .replace(/[^a-z0-9\-]/g, '')
-      )
+      .map((segment) => segment.trim())
+      .join('/')
 
-    return [pathSegments.join('/')]
+    if (rawTarget.includes('/')) {
+      return [cleanPath]
+    }
+
+    return [`./${cleanPath}`, cleanPath]
   },
-  hrefTemplate: (permalink: string) => `/${permalink}`
+
+  // hrefTemplate: trasforma la stringa in un URL HTML valido
+  hrefTemplate: (permalink: string) => {
+    // encodeURI codifica spazi e caratteri speciali per l'HTML (es. spazi -> %20)
+    // senza intaccare i caratteri di struttura dell'URL come '/' e './'
+    const encoded = encodeURI(permalink)
+
+    if (encoded.startsWith('./') || encoded.startsWith('../')) {
+      return encoded
+    }
+    return `/${encoded}`
+  }
 }
