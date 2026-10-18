@@ -41,7 +41,7 @@ export const wikiLinkOptions = {
     // Unisce lo slug umano con l'hash a 10 caratteri
     const fullSlug = seoSlug ? `${seoSlug}-${hash}` : hash
 
-    return [`p/${fullSlug}`]
+    return [`${fullSlug}`]
   },
 
   hrefTemplate: (permalink: string) => `/${permalink}`
