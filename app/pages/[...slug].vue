@@ -8,25 +8,47 @@
 </template>
 
 <script setup lang="ts">
-import { generateHash } from '~/config/remarkWikiLink'
+import { sha256 } from 'js-sha256'
+
+const normalizeString = (str: string): string =>
+  str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const generateHash = (str: string): string =>
+  sha256(normalizeString(str)).substring(0, 10)
 
 const route = useRoute()
 
-// slug è un array contenente i segmenti del percorso (es. ['p', 'a1b2c3d4'] oppure ['appunti', 'scuola', 'home'])
+// slug è un array contenente i segmenti del percorso (es. ['p', 'valore-assoluto-a1b2c3d4'] oppure ['appunti', 'scuola', 'home'])
 const slugSegments = (route.params.slug as string[]) || []
 
-// Verifica se la rotta inizia con 'p' e ha un hash come secondo parametro
+// Verifica se la rotta inizia con 'p' e contiene lo slug con l'hash
 const isHashRoute = slugSegments[0] === 'p' && slugSegments.length > 1
-const targetHash = isHashRoute ? slugSegments[1] : null
+const rawSlugParam = isHashRoute ? slugSegments[1] : null
+
+// Estrae solo i 10 caratteri dell'hash finale da una stringa tipo "valore-assoluto-a1b2c3d4"
+const targetHash = computed(() => {
+  if (!rawSlugParam) return null
+  
+  // Se la stringa contiene un trattino, prende l'ultima parte
+  const parts = rawSlugParam.split('-')
+  return parts.pop() || rawSlugParam
+})
+
 const currentPathQuery = (route.query.from as string) || ''
 
 const { data: page } = await useAsyncData(`content-${route.path}`, async () => {
   const allDocs = await queryCollection('content').all()
 
-  // SCENARIO 1: L'URL è nella forma /p/hash
-  if (targetHash) {
+  // SCENARIO 1: L'URL è nella forma /p/seo-slug-hash
+  if (targetHash.value) {
+    const hashToMatch = targetHash.value
+
     // 1. Match sull'HASH del percorso completo
-    const exactMatch = allDocs.find((doc) => generateHash(doc.path) === targetHash)
+    const exactMatch = allDocs.find((doc) => generateHash(doc.path) === hashToMatch)
     if (exactMatch) return exactMatch
 
     // 2. Match contestuale (risale le cartelle dalla provenienza ?from=...)
@@ -39,7 +61,7 @@ const { data: page } = await useAsyncData(`content-${route.path}`, async () => {
         const contextualMatch = allDocs.find((doc) => {
           const isInSameDir = doc.path.startsWith(parentDir)
           const fileName = doc.path.split('/').pop() ?? ''
-          return isInSameDir && generateHash(fileName) === targetHash
+          return isInSameDir && generateHash(fileName) === hashToMatch
         })
 
         if (contextualMatch) return contextualMatch
@@ -50,7 +72,7 @@ const { data: page } = await useAsyncData(`content-${route.path}`, async () => {
     // 3. Fallback globale sull'hash del nome del file
     return allDocs.find((doc) => {
       const fileName = doc.path.split('/').pop() ?? ''
-      return generateHash(fileName) === targetHash
+      return generateHash(fileName) === hashToMatch
     }) || null
   }
 
