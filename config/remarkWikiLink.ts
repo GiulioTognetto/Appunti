@@ -1,42 +1,37 @@
 // config/markdown.ts
 export const wikiLinkOptions = {
   aliasDivider: '|',
-  
-  // pageResolver riceve la stringa dentro le doppie quadre [[...]]
+
   pageResolver: (name: string) => {
-    // 1. Estrae la destinazione ignorando l'alias dopo '|'
-    const cleanName = name.split('|')[0] ?? ''.trim()
+    // 1. Prende solo la destinazione del link ignorando l'alias dopo '|'
+    const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    // Helper per trasformare qualsiasi stringa in uno slug pulito e normalizzato
-    const slugifyify = (str: string) =>
-      str
-        .toLowerCase()
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // rimuove gli accenti
-        .replace(/\s+/g, '-')             // sostituisce gli spazi con trattini
-        .replace(/[^a-z0-9\-\/]/g, '')     // rimuove i caratteri speciali mantenendo i slash '/'
+    // 2. Mantiene il nome ESATTO del file/cartella, convertendo solo in minuscolo
+    // per rispecchiare il comportamento case-insensitive di Obsidian e Nuxt Content
+    const normalizeExactPath = (pathStr: string) =>
+      pathStr
+        .split('/')
+        .map((segment) => segment.trim().toLowerCase())
+        .join('/')
 
-    // 2. Se il link contiene già un percorso esplicito (es. [[Scuola/Informatica/Appunti Generici]])
-    if (cleanName.includes('/')) {
-      return [slugifyify(cleanName)]
+    const exactPath = normalizeExactPath(rawTarget)
+
+    if (rawTarget.includes('/')) {
+      return [exactPath]
     }
 
-    // 3. Se è un nome semplice (es. [[Appunti Generici]]), restituisce sia il percorso assoluto
-    // sia la variante relativa che remark-wiki-link o il router di Nuxt proveranno a risolvere
-    const targetSlug = slugifyify(cleanName)
-
-    return [
-      `./${targetSlug}`,
-      targetSlug
-    ]
+    // Restituisce il path relativo e assoluto senza alterare i caratteri (parentesi, spazi, ecc.)
+    return [`./${exactPath}`, exactPath]
   },
 
   hrefTemplate: (permalink: string) => {
-    // Assicura che l'URL finale mantenga i percorsi relativi se presenti
-    if (permalink.startsWith('./') || permalink.startsWith('../')) {
-      return permalink
+    // encodeURI garantisce che spazi e parentesi siano validi nell'HTML (es. "piramide%20retta%20(a%20base%20quadrata)")
+    // senza modificare la struttura del nome del file
+    const encoded = encodeURI(permalink)
+
+    if (encoded.startsWith('./') || encoded.startsWith('../')) {
+      return encoded
     }
-    return `/${permalink}`
+    return `/${encoded}`
   }
 }
