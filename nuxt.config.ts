@@ -16,5 +16,11 @@ export default defineNuxtConfig({
       type: 'sqlite',
       filename: ':memory:'
     }
+  },
+
+  nitro: {
+    prerender: {
+      failOnError: false
+    }
   }
 })
