@@ -45,10 +45,27 @@ jobs:
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
+      - name: Detect Base URL
+        id: detect-base-url
+        run: |
+          PAGES_INFO=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" || true)
+
+          CNAME=$(echo "$PAGES_INFO" | jq -r '.cname // empty')
+
+          if [ -n "$CNAME" ] && [ "$CNAME" != "null" ]; then
+            echo "Custom domain rilevato ($CNAME). Imposto BASE_URL a '/'"
+            echo "base_url=/" >> $GITHUB_OUTPUT
+          else
+            echo "Nessun custom domain rilevato. Imposto BASE_URL a '/${{ github.event.repository.name }}/'"
+            echo "base_url=/${{ github.event.repository.name }}/" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build Static Site
         run: bun run generate
         env:
-          NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
+          NUXT_APP_BASE_URL: ${{ steps.detect-base-url.outputs.base_url }}
 
       - name: Upload Artifacts (GitHub Pages)
         uses: actions/upload-pages-artifact@v3
