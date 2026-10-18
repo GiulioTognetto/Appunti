@@ -1,4 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+
+import remarkWikiLink from 'remark-wiki-link'
+import { wikiLinkOptions } from './config/remarkWikiLink'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/content',
@@ -16,6 +20,16 @@ export default defineNuxtConfig({
   },
 
   content: {
+    build: {
+      markdown: {
+        remarkPlugins: {
+          'remark-wiki-link': {
+            src: remarkWikiLink,
+            options: wikiLinkOptions
+          }
+        }
+      }
+    },
     database: {
       type: 'sqlite',
       filename: ':memory:'
