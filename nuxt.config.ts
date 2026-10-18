@@ -39,6 +39,13 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       failOnError: false
+    },
+    routeRules: {
+      '/**': {
+        headers: {
+          'Content-Security-Policy': "default-src 'self'; connect-src 'self' https:;"
+        }
+      }
     }
   }
 })
