@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { generateHash } from '~/config/markdown'
+import { generateHash } from '~/config/remarkWikiLink'
 
 const route = useRoute()
 

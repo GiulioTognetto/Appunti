@@ -1,4 +1,4 @@
-// config/markdown.ts
+// config/remarkWikiLink.ts
 import { sha256 } from 'js-sha256'
 
 // Normalizza qualsiasi stringa (rimuove accenti, spazi extra, minuscolo)
