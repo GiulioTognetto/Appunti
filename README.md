@@ -67,40 +67,23 @@ If you want the website to **automatically rebuild** every time you `git push` t
 
 
 ```yaml
-
 name: Trigger Website Build
 
-
-
 on:
-
   push:
-
     branches:
-
       - main # or 'master'
 
-
-
 jobs:
-
   notify:
-
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Send Dispatch Event
-
         uses: peter-evans/repository-dispatch@v3
-
         with:
-
           token: ${{ secrets.GITHUB_TOKEN }}
-
           repository: YOUR-USERNAME/YOUR-WEBSITE-REPO # e.g., john/my-notes-website
-
-          event-type: appunti-updated
+          event-type: content-updated
 
 ```
 
