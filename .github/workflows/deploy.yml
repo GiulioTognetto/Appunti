@@ -17,17 +17,22 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.PERSONAL_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Setup Dynamic Submodule
+      - name: Checkout Content Submodule
         run: |
           if [ -z "${{ vars.CONTENT_REPOSITORY_URL }}" ]; then
             echo "Error: the variable vars.CONTENT_REPOSITORY_URL is not set in GitHub settings!"
             exit 1
           fi
 
+          URL="${{ vars.CONTENT_REPOSITORY_URL }}"
+          if [ -n "${{ secrets.PERSONAL_TOKEN }}" ]; then
+            URL=$(echo "$URL" | sed "s|https://|https://x-access-token:${{ secrets.PERSONAL_TOKEN }}@|")
+          fi
+
           git submodule deinit -f content || true
           rm -rf .git/modules/content content
 
-          git submodule add -f "${{ vars.CONTENT_REPOSITORY_URL }}" content
+          git submodule add -f "$URL" content
           git submodule update --init --recursive --remote
 
       - name: Setup Bun
