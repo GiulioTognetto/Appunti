@@ -27,8 +27,8 @@ export const wikiLinkOptions = {
     const targetSlug = slugifyify(cleanName)
 
     return [
-      targetSlug,             // /appunti-generici
-      `./${targetSlug}`       // ./appunti-generici (relativo alla cartella corrente)
+      `./${targetSlug}`,
+      targetSlug
     ]
   },
 
