@@ -2,14 +2,22 @@
 export const wikiLinkOptions = {
   aliasDivider: '|',
 
-  // pageResolver: lavora con stringhe IN CHIARO per matchare il file system
   pageResolver: (name: string) => {
     const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    // Normalizziamo solo il case (lowercase) per matchare il comportamento case-insensitive di Obsidian
+    const slugifySegment = (segment: string) =>
+      segment
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // "università" -> "universita"
+        .replace(/\s+/g, '-')             // "scuola superiore" -> "scuola-superiore"
+        .replace(/[^a-z0-9\-]/g, '')     // rimuove caratteri speciali rimasti
+
     const cleanPath = rawTarget
       .split('/')
-      .map((segment) => segment.trim())
+      .map(slugifySegment)
+      .filter(Boolean)
       .join('/')
 
     if (rawTarget.includes('/')) {
@@ -19,15 +27,11 @@ export const wikiLinkOptions = {
     return [`./${cleanPath}`, cleanPath]
   },
 
-  // hrefTemplate: trasforma la stringa in un URL HTML valido
   hrefTemplate: (permalink: string) => {
-    // encodeURI codifica spazi e caratteri speciali per l'HTML (es. spazi -> %20)
-    // senza intaccare i caratteri di struttura dell'URL come '/' e './'
-    const encoded = encodeURI(permalink)
-
-    if (encoded.startsWith('./') || encoded.startsWith('../')) {
-      return encoded
+    // NON aggiungere il baseURL qui! Ci pensa già Nuxt/Router automaticamente.
+    if (permalink.startsWith('./') || permalink.startsWith('../')) {
+      return permalink
     }
-    return `/${encoded}`
+    return `/${permalink}`
   }
 }
