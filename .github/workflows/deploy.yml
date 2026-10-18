@@ -29,7 +29,9 @@ jobs:
             URL=$(echo "$URL" | sed "s|https://|https://x-access-token:${{ secrets.PERSONAL_TOKEN }}@|")
           fi
 
-          git submodule deinit -f content || true
+          git submodule deinit -f content 2>/dev/null || true
+          git rm -f content 2>/dev/null || true
+          
           rm -rf .git/modules/content content
 
           git submodule add -f "$URL" content
