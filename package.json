@@ -33,6 +33,7 @@
     "@tiptap/suggestion": "^3",
     "@tiptap/vue-3": "^3",
     "better-sqlite3": "^13.0.3",
+    "js-sha256": "^1.0.0",
     "nuxt": "^4.6.2",
     "remark-wiki-link": "^2.0.1",
     "tailwindcss": "^4",

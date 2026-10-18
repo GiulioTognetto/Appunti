@@ -1,29 +1,29 @@
 // config/markdown.ts
+import { sha256 } from 'js-sha256'
+
+// Normalizza qualsiasi stringa (rimuove accenti, spazi extra, minuscolo)
+export const normalizeString = (str: string): string =>
+  str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+// Genera l'hash SHA-256 univoco a 10 caratteri
+export const generateHash = (str: string): string =>
+  sha256(normalizeString(str)).substring(0, 10)
+
 export const wikiLinkOptions = {
   aliasDivider: '|',
 
   pageResolver: (name: string) => {
     const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    const slugifySegment = (segment: string) =>
-      segment
-        .toLowerCase()
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[\s\uA000\u1680\u2000-\u200A\u202F\u205F\u3000]+/g, '-')
-        .replace(/[()\[\]{}.,:;!?'"`~@#$%^&*+=|<>\/\\°]/g, '')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '')
+    // Calcola l'hash della stringa così com'è scritta nel wikilink
+    const hash = generateHash(rawTarget)
 
-    const cleanPath = rawTarget
-      .split('/')
-      .map(slugifySegment)
-      .filter(Boolean)
-      .join('/')
-
-    return [cleanPath]
+    return [`p/${hash}`]
   },
 
-  hrefTemplate: (permalink: string) => permalink
+  hrefTemplate: (permalink: string) => `/${permalink}`
 }
