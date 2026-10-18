@@ -1,0 +1,61 @@
+name: Build & Deploy
+
+on:
+  repository_dispatch:
+    types: [content-updated]
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Website
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PERSONAL_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Dynamic Submodule
+        run: |
+          if [ -z "${{ vars.CONTENT_REPOSITORY_URL }}" ]; then
+            echo "Error: the variable vars.CONTENT_REPOSITORY_URL is not set in GitHub settings!"
+            exit 1
+          fi
+
+          git submodule deinit -f content || true
+          rm -rf .git/modules/content content
+
+          git submodule add -f "${{ vars.CONTENT_REPOSITORY_URL }}" content
+          git submodule update --init --recursive --remote
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build Static Site
+        run: bun run generate
+
+      - name: Upload Artifacts (GitHub Pages)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .output/public
+
+  deploy:
+    needs: build-and-deploy
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
