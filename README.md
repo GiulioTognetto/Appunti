@@ -1,4 +1,4 @@
-# 🌿 Obsidian Notes Website (GitHub Action)
+# 🌿 NotesWebsiteBuilder (GitHub Action)
 
 This repository is both a Nuxt 3 static website engine and a **GitHub Action** that turns any repository of Markdown / Obsidian notes into a fast, static website hosted on GitHub Pages.
 
