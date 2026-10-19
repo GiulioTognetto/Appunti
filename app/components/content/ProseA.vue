@@ -1,3 +1,4 @@
+<!-- components/content/ProseA.vue -->
 <script setup lang="ts">
 const props = defineProps<{
   href?: string
@@ -7,13 +8,13 @@ const props = defineProps<{
 const computedHref = computed(() => {
   if (!props.href) return '#'
 
-  // Gestione link esterni
+  // Link esterni
   if (props.href.startsWith('http://') || props.href.startsWith('https://') || props.href.startsWith('mailto:')) {
     return props.href
   }
 
-  // Garantisce che i link interni partano dalla root
-  if (props.href.startsWith('p/')) {
+  // Assicura che i link interni partano dalla radice del sito
+  if (!props.href.startsWith('/')) {
     return `/${props.href}`
   }
 

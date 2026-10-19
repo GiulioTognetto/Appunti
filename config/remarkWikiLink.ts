@@ -1,48 +1,44 @@
 // config/remarkWikiLink.ts
-import { sha256 } from 'js-sha256'
-
-// Normalizza la stringa rimuovendo accenti, spazi e caratteri speciali
-export const normalizeString = (str: string): string =>
-  str
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-
-// Genera uno slug pulito ed elegante per la SEO (es. "Valore Assoluto" -> "valore-assoluto")
-export const slugify = (str: string): string => {
-  const fileName = str.split('/').pop() ?? str
-
-  return normalizeString(fileName)
-    .replace(/[\u2010-\u2015\u2212]/g, '-')
-    .replace(/[\s\uA000\u1680\u2000-\u200A\u202F\u205F\u3000]+/g, '-')
-    .replace(/[()\[\]{}.,:;!?'"`~@#$%^&*+=|<>\/\\°]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-// Genera l'hash SHA-256 deterministico a 10 caratteri dal percorso del file
-export const generateHash = (str: string): string =>
-  sha256(normalizeString(str)).substring(0, 10)
+import remarkWikiLink from 'remark-wiki-link'
 
 export const wikiLinkOptions = {
   aliasDivider: '|',
 
   pageResolver: (name: string) => {
-    // 1. Prende il percorso del file ignorando l'alias dopo '|'
+    // 1. Prende solo il percorso prima del '|' (ignorando l'alias)
     const rawTarget = (name.split('|')[0] ?? '').trim()
 
-    // 2. Genera lo slug umano per la SEO dal nome del file
-    const seoSlug = slugify(rawTarget)
+    // 2. Normalizza ciascun segmento del percorso (lowercase, rimuove accenti e trasforma spazi/simboli in '-')
+    const slugifySegment = (segment: string) =>
+      segment
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // rimuove gli accenti ("università" -> "universita")
+        .replace(/[\u2010-\u2015\u2212]/g, '-') // unifica i trattini
+        .replace(/[\s\uA000\u1680\u2000-\u200A\u202F\u205F\u3000]+/g, '-') // spazi -> '-'
+        .replace(/[()\[\]{}.,:;!?'"`~@#$%^&*+=|<>\/\\°]/g, '') // rimuove punteggiatura
+        .replace(/-+/g, '-') // riduce trattini multipli ("--" -> "-")
+        .replace(/^-+|-+$/g, '')
 
-    // 3. Genera l'hash univoco basato sul percorso completo
-    const hash = generateHash(rawTarget)
+    let cleanPath = rawTarget
+      .split('/')
+      .map(slugifySegment)
+      .filter(Boolean)
+      .join('/')
 
-    // Unisce lo slug umano con l'hash a 10 caratteri
-    const fullSlug = seoSlug ? `${seoSlug}-${hash}` : hash
+    // Se finisce con '/index', lo rimuove per puntare alla cartella principale
+    if (cleanPath.endsWith('/index')) {
+      cleanPath = cleanPath.slice(0, -6)
+    }
 
-    return [`/${fullSlug}`]
+    return [cleanPath]
   },
 
-  hrefTemplate: (permalink: string) => `/${permalink}`
+  hrefTemplate: (permalink: string) => {
+    if (permalink.startsWith('/')) {
+      return permalink
+    }
+    return `/${permalink}`
+  }
 }
