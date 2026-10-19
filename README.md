@@ -1,160 +1,99 @@
-# 🌿 Obsidian Notes Website
+# 🌿 Obsidian Notes Website (GitHub Action)
 
-
-
-This repository is a **Nuxt 3 + `@nuxt/content`** template designed to turn a repository of Markdown notes (written in Obsidian or any other text editor) into a fast, customizable static website.
-
-
-
-Powered by **Bun** and **GitHub Actions**, the website automatically rebuilds and updates whenever you publish or edit a note in your vault.
-
-
+This repository is both a Nuxt 3 static website engine and a **GitHub Action** that turns any repository of Markdown / Obsidian notes into a fast, static website hosted on GitHub Pages.
 
 ---
 
+## 🚀 How to use this Action in your Notes repository
 
+You don't need to fork or clone this repository anymore! You just need to add a single workflow file to your **Notes** repository.
 
-## 🚀 Quick Setup Guide
+### Step 1: Enable GitHub Pages in your Notes Repository
+1. In your **Notes** repository on GitHub, go to **Settings** > **Pages**.
+2. Under **Build and deployment** > **Source**, select **GitHub Actions**.
 
-
-
-Setting up your website takes less than 5 minutes and requires zero code modifications.
-
-
-
-### Step 1: Create the Website Repository
-
-1. Click the **"Use this template"** button at the top right of this GitHub page and create a new repository (e.g., `my-notes-website`).
-
-2. Go to your new repository's **Settings** on GitHub:
-
-   * In the left sidebar, click **Pages**.
-
-   * Under **Source**, select **GitHub Actions**.
-
-
-
-### Step 2: Link Your Notes Repository
-
-1. Copy the full Git URL of your notes repository (e.g., `https://github.com/your-username/my-notes.git`).
-
-2. In your **Website** repository, go to **Settings** > **Secrets and variables** > **Actions** > **Variables** tab.
-
-3. Click **New repository variable** and enter:
-
-   * **Name:** `CONTENT_REPOSITORY_URL`
-
-   * **Value:** Your full notes repository URL (e.g., `https://github.com/your-username/my-notes.git`).
-
-
-
----
-
-
-
-## 🔄 Automatic Synchronization (Optional)
-
-
-
-If you want the website to **automatically rebuild** every time you `git push` to your notes repository:
-
-
-
-1. Open your **Notes** repository on GitHub.
-
-2. Create a file named `.github/workflows/notify-website.yml` and paste the following configuration:
-
-
+### Step 2: Add the Deployment Workflow
+In your **Notes** repository, create `.github/workflows/deploy.yml` with the following content:
 
 ```yaml
-name: Trigger Website Build
+name: Deploy Notes Website
 
 on:
   push:
     branches:
-      - main # or 'master'
+      - main # or master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
 
 jobs:
-  notify:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Send Dispatch Event
-        uses: peter-evans/repository-dispatch@v3
+      - name: Checkout Notes
+        uses: actions/checkout@v4
+
+      - name: Build Website
+        uses: GiulioTognetto/NotesWebsite@main
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: YOUR-USERNAME/YOUR-WEBSITE-REPO # e.g., john/my-notes-website
-          event-type: content-updated
+          # Optional: path to your notes if they are in a subfolder (e.g. 'notes' or 'vault')
+          content-dir: '.'
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 ```
-
-
-
-*(Be sure to replace `YOUR-USERNAME/YOUR-WEBSITE-REPO` with your website's repository path)*.
-
-
 
 ---
 
+## ⚙️ Action Inputs
 
+| Input | Description | Required | Default |
+|---|---|---|---|
+| `content-dir` | Path inside the caller repository where Markdown notes are located. | No | `.` |
+| `base-url` | Override the site's base URL (e.g. `/my-notes/` or `/`). By default, it is auto-detected. | No | `""` (auto) |
+| `upload-pages-artifact` | Upload the build as a GitHub Pages artifact ready for `actions/deploy-pages`. | No | `'true'` |
+| `github-token` | Token used to inspect GitHub Pages API for custom domain detection. | No | `${{ github.token }}` |
+
+## 📤 Action Outputs
+
+| Output | Description |
+|---|---|
+| `output-dir` | Path to the generated static files (`.output/public`). |
+| `base-url` | The resolved base URL used to compile the site. |
+
+---
 
 ## 🛠️ Local Development
 
+If you want to customize the website theme, components, or plugins:
 
-
-If you want to customize styles, Vue components, or test the website locally using **Bun**:
-
-
-
-1. Clone the website repository including the notes submodule:
-
+1. Clone this repository:
    ```bash
-
-   git clone --recursive https://github.com/your-username/your-website-repo.git
-
-   cd your-website-repo
-
+   git clone https://github.com/GiulioTognetto/NotesWebsite.git
+   cd NotesWebsite
    ```
 
+2. Place your sample markdown files inside the `content/` folder.
 
-
-2. If you haven't linked the local submodule into the `content/` folder yet:
-
+3. Install dependencies and run the dev server:
    ```bash
-
-   git submodule add https://github.com/your-username/my-notes.git content
-
-   ```
-
-
-
-3. Install dependencies and start the development server:
-
-   ```bash
-
    bun install
-
    bun dev
-
    ```
-
-
 
 4. Open `http://localhost:3000` in your browser.
-
-
-
----
-
-
-
-## 📦 Tech Stack
-
-
-
-* **Framework:** [Nuxt 3](https://nuxt.com/)
-
-* **Content Engine:** [`@nuxt/content`](https://content.nuxt.com/) (with built-in support for Wikilinks `[[note]]`)
-
-* **Package Manager & Runtime:** [Bun](https://bun.sh/)
-
-* **Deployment:** GitHub Pages & GitHub Actions

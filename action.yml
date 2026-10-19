@@ -1,0 +1,139 @@
+name: 'Notes Website Builder'
+description: 'Generates a static website from Markdown/Obsidian notes using Nuxt Content'
+author: 'Giulio Tognetto'
+
+inputs:
+  content-dir:
+    description: 'Path in the caller repository where the markdown notes are located'
+    required: false
+    default: '.'
+  base-url:
+    description: 'Base URL for the website (leave empty to auto-detect from GitHub Pages or repository name)'
+    required: false
+    default: ''
+  upload-pages-artifact:
+    description: 'Whether to upload the generated static site as a GitHub Pages artifact'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'GitHub token for Pages API detection (defaults to github.token)'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  output-dir:
+    description: 'Path to the generated static website (.output/public)'
+    value: ${{ steps.set-output.outputs.output-dir }}
+  base-url:
+    description: 'The base URL used to build the website'
+    value: ${{ steps.detect-base-url.outputs.base_url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install Website Dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: bun install --frozen-lockfile
+
+    - name: Copy Content from Caller Repository
+      shell: bash
+      run: |
+        CONTENT_SRC="${{ github.workspace }}/${{ inputs.content-dir }}"
+        TARGET_DIR="${{ github.action_path }}/content"
+
+        if [ ! -d "$CONTENT_SRC" ]; then
+          echo "::error::Content directory '$CONTENT_SRC' does not exist!"
+          exit 1
+        fi
+
+        echo "Copying notes from $CONTENT_SRC to $TARGET_DIR..."
+        rm -rf "$TARGET_DIR"
+        mkdir -p "$TARGET_DIR"
+
+        # Sincronizza i file escludendo metadati git e configurazioni CI
+        rsync -a --delete \
+          --exclude '.git' \
+          --exclude '.github' \
+          "$CONTENT_SRC/" "$TARGET_DIR/"
+
+        # Se nella cartella dei contenuti c'è una cartella public/ o un CNAME, copiali negli asset del sito
+        if [ -f "$CONTENT_SRC/CNAME" ]; then
+          echo "Found CNAME file in content, copying to public folder..."
+          mkdir -p "${{ github.action_path }}/public"
+          cp "$CONTENT_SRC/CNAME" "${{ github.action_path }}/public/CNAME"
+        fi
+
+        if [ -d "$CONTENT_SRC/public" ]; then
+          echo "Found public directory in content, copying assets..."
+          mkdir -p "${{ github.action_path }}/public"
+          cp -r "$CONTENT_SRC/public/"* "${{ github.action_path }}/public/" 2>/dev/null || true
+        fi
+
+    - name: Detect Base URL
+      id: detect-base-url
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.base-url }}" ]; then
+          BASE_URL="${{ inputs.base-url }}"
+          echo "Using provided base-url: $BASE_URL"
+        elif [ -f "${{ github.workspace }}/CNAME" ] || [ -f "${{ github.action_path }}/public/CNAME" ]; then
+          echo "CNAME detected. Setting BASE_URL to '/'"
+          BASE_URL="/"
+        elif [[ "${{ github.repository }}" == *.github.io ]]; then
+          echo "GitHub Pages root site (*.github.io) detected. Setting BASE_URL to '/'"
+          BASE_URL="/"
+        else
+          PAGES_INFO=$(curl -s -H "Authorization: Bearer ${{ inputs.github-token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" 2>/dev/null || true)
+          CNAME=$(echo "$PAGES_INFO" | jq -r '.cname // empty' 2>/dev/null || true)
+
+          if [ -n "$CNAME" ] && [ "$CNAME" != "null" ]; then
+            echo "Custom domain detected via Pages API ($CNAME). Setting BASE_URL to '/'"
+            BASE_URL="/"
+          else
+            REPO_NAME="${{ github.event.repository.name }}"
+            if [ -z "$REPO_NAME" ]; then
+              REPO_NAME=$(basename "${{ github.repository }}")
+            fi
+            echo "Standard GitHub repository detected. Setting BASE_URL to '/$REPO_NAME/'"
+            BASE_URL="/$REPO_NAME/"
+          fi
+        fi
+
+        # Normalizza gli slash (assicura leading e trailing slash corretti)
+        if [[ "$BASE_URL" != "/" && "$BASE_URL" != */ ]]; then
+          BASE_URL="$BASE_URL/"
+        fi
+        if [[ "$BASE_URL" != /* ]]; then
+          BASE_URL="/$BASE_URL"
+        fi
+
+        echo "Resolved BASE_URL: $BASE_URL"
+        echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
+
+    - name: Build Static Site
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        NUXT_APP_BASE_URL: ${{ steps.detect-base-url.outputs.base_url }}
+      run: bun run generate
+
+    - name: Set Action Outputs
+      id: set-output
+      shell: bash
+      run: |
+        echo "output-dir=${{ github.action_path }}/.output/public" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Pages Artifact
+      if: ${{ inputs.upload-pages-artifact == 'true' }}
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ${{ github.action_path }}/.output/public
+
