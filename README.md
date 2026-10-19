@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Website
-        uses: GiulioTognetto/ObsidianNotesWebsite@main
+        uses: GiulioTognetto/NotesWebsiteBuilder@main
         with:
           # Optional: path to your notes if they are in a subfolder (e.g. 'notes' or 'vault')
           content-dir: '.'
@@ -84,8 +84,8 @@ If you want to customize the website theme, components, or plugins:
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/GiulioTognetto/ObsidianNotesWebsite.git
-   cd ObsidianNotesWebsite
+   git clone https://github.com/GiulioTognetto/NotesWebsiteBuilder.git
+   cd NotesWebsiteBuilder
    ```
 
 2. Place your sample markdown files inside the `content/` folder.
