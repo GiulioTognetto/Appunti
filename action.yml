@@ -2,6 +2,10 @@ name: 'Notes Website Builder'
 description: 'Generates a static website from Markdown/Obsidian notes using Nuxt Content'
 author: 'Giulio Tognetto'
 
+branding:
+  icon: 'book-open'
+  color: 'green'
+
 inputs:
   content-dir:
     description: 'Path in the caller repository where the markdown notes are located'
