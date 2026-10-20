@@ -1,27 +1,67 @@
 # 🌿 NotesWebsiteBuilder (GitHub Action)
 
-This repository is both a Nuxt 3 static website engine and a **GitHub Action** that turns any repository of Markdown / Obsidian notes into a fast, static website hosted on GitHub Pages.
+This repository is a **platform-agnostic GitHub Action** and static site generator powered by Nuxt 3 and `@nuxt/content`. It converts a repository of Markdown / Obsidian notes into a ready-to-deploy static website bundle and uploads it as a build artifact.
+
+Because this action is platform-agnostic, you can deploy the generated bundle to any host: **Cloudflare Pages**, **GitHub Pages**, **Vercel**, **Netlify**, **AWS S3**, etc.
 
 ---
 
-## 🚀 How to use this Action in your Notes repository
+## ⚡ Deployment Examples for your Notes Repository
 
-You don't need to fork or clone this repository anymore! You just need to add a single workflow file to your **Notes** repository.
+### Example 1: Deploy to Cloudflare Pages (Recommended)
 
-### Step 1: Enable GitHub Pages in your Notes Repository
-1. In your **Notes** repository on GitHub, go to **Settings** > **Pages**.
-2. Under **Build and deployment** > **Source**, select **GitHub Actions**.
-
-### Step 2: Add the Deployment Workflow
-In your **Notes** repository, create `.github/workflows/deploy.yml` with the following content:
+1. In your **Notes repository**, add your Cloudflare credentials in **Settings** > **Secrets and variables** > **Actions**:
+   - `CLOUDFLARE_API_TOKEN` (API Token with *Cloudflare Pages: Edit* permissions)
+   - `CLOUDFLARE_ACCOUNT_ID`
+2. Create `.github/workflows/deploy.yml`:
 
 ```yaml
-name: Deploy Notes Website
+name: Deploy Notes to Cloudflare Pages
 
 on:
   push:
     branches:
-      - main # or master
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Notes
+        uses: actions/checkout@v4
+
+      - name: Build Notes Website
+        uses: GiulioTognetto/NotesWebsiteBuilder@main
+        with:
+          content-dir: '.' # or subfolder like 'notes'
+          nitro-preset: 'cloudflare-pages' # base-url automatically defaults to '/'
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=my-notes-site
+```
+
+---
+
+### Example 2: Deploy to GitHub Pages
+
+1. In your **Notes repository**, go to **Settings** > **Pages** and set **Source** to **GitHub Actions**.
+2. Create `.github/workflows/deploy.yml`:
+
+```yaml
+name: Deploy Notes to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -40,11 +80,17 @@ jobs:
       - name: Checkout Notes
         uses: actions/checkout@v4
 
-      - name: Build Website
+      - name: Build Notes Website
         uses: GiulioTognetto/NotesWebsiteBuilder@main
         with:
-          # Optional: path to your notes if they are in a subfolder (e.g. 'notes' or 'vault')
           content-dir: '.'
+          # nitro-preset defaults to 'static'
+          # base-url is auto-detected: '/<repo-name>/' or '/' if custom domain / CNAME
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
 
   deploy:
     needs: build
@@ -64,23 +110,25 @@ jobs:
 
 | Input | Description | Required | Default |
 |---|---|---|---|
-| `content-dir` | Path inside the caller repository where Markdown notes are located. | No | `.` |
-| `base-url` | Override the site's base URL (e.g. `/my-notes/` or `/`). By default, it is auto-detected. | No | `""` (auto) |
-| `upload-pages-artifact` | Upload the build as a GitHub Pages artifact ready for `actions/deploy-pages`. | No | `'true'` |
-| `github-token` | Token used to inspect GitHub Pages API for custom domain detection. | No | `${{ github.token }}` |
+| `content-dir` | Path inside caller repo where notes are stored. | No | `.` |
+| `nitro-preset` | Nitro build preset (e.g. `static`, `cloudflare-pages`, `github-pages`, `vercel`). | No | `'static'` |
+| `base-url` | Base URL for the website. If omitted: defaults to `'/'` for any non-static preset (like `cloudflare-pages`); auto-detects `/<repo-name>/` or `'/'` for `static`. | No | `""` (auto) |
+| `upload-artifact` | Upload standard GitHub Actions build artifact. | No | `'true'` |
+| `artifact-name` | Name of the uploaded artifact. | No | `'website-build'` |
+| `github-token` | Token used to inspect GitHub Pages API when preset is `static`. | No | `${{ github.token }}` |
 
 ## 📤 Action Outputs
 
 | Output | Description |
 |---|---|
-| `output-dir` | Path to the generated static files (`.output/public`). |
-| `base-url` | The resolved base URL used to compile the site. |
+| `output-dir` | Path to the generated files in the caller workspace (`dist/`). |
+| `base-url` | The resolved base URL used to compile the website. |
 
 ---
 
 ## 🛠️ Local Development
 
-If you want to customize the website theme, components, or plugins:
+To run or customize the theme locally:
 
 1. Clone this repository:
    ```bash
@@ -88,12 +136,12 @@ If you want to customize the website theme, components, or plugins:
    cd NotesWebsiteBuilder
    ```
 
-2. Place your sample markdown files inside the `content/` folder.
+2. Place sample notes in `content/`.
 
-3. Install dependencies and run the dev server:
+3. Install dependencies and start the dev server:
    ```bash
    bun install
    bun dev
    ```
 
-4. Open `http://localhost:3000` in your browser.
+4. Open `http://localhost:3000`.

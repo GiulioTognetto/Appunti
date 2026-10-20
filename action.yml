@@ -1,5 +1,5 @@
 name: 'Notes Website Builder'
-description: 'Generates a static website from Markdown/Obsidian notes using Nuxt Content'
+description: 'Platform-agnostic static website bundle generator from Markdown/Obsidian notes using Nuxt Content'
 author: 'Giulio Tognetto'
 
 branding:
@@ -12,24 +12,32 @@ inputs:
     required: false
     default: '.'
   base-url:
-    description: 'Base URL for the website (leave empty to auto-detect from GitHub Pages or repository name)'
+    description: 'Base URL for the website (leave empty to auto-detect: "/" for non-static presets or CNAME, "/<repo>/" for static GitHub Pages)'
     required: false
     default: ''
-  upload-pages-artifact:
-    description: 'Whether to upload the generated static site as a GitHub Pages artifact'
+  nitro-preset:
+    description: 'Nitro build preset (e.g. "static", "cloudflare-pages", "github-pages", "vercel")'
+    required: false
+    default: 'static'
+  upload-artifact:
+    description: 'Whether to upload the generated bundle as a GitHub Actions artifact'
     required: false
     default: 'true'
+  artifact-name:
+    description: 'Name of the uploaded artifact'
+    required: false
+    default: 'website-build'
   github-token:
-    description: 'GitHub token for Pages API detection (defaults to github.token)'
+    description: 'GitHub token for Pages API detection when preset is static (defaults to github.token)'
     required: false
     default: ${{ github.token }}
 
 outputs:
   output-dir:
-    description: 'Path to the generated static website (.output/public)'
+    description: 'Path to the generated bundle directory in the workspace (dist/)'
     value: ${{ steps.set-output.outputs.output-dir }}
   base-url:
-    description: 'The base URL used to build the website'
+    description: 'The resolved base URL used to compile the site'
     value: ${{ steps.detect-base-url.outputs.base_url }}
 
 runs:
@@ -79,65 +87,82 @@ runs:
           cp -r "$CONTENT_SRC/public/"* "${{ github.action_path }}/public/" 2>/dev/null || true
         fi
 
-    - name: Detect Base URL
+    - name: Resolve Base URL
       id: detect-base-url
       shell: bash
       run: |
-        if [ -n "${{ inputs.base-url }}" ]; then
-          BASE_URL="${{ inputs.base-url }}"
-          echo "Using provided base-url: $BASE_URL"
+        PRESET="${{ inputs.nitro-preset }}"
+        INPUT_BASE_URL="${{ inputs.base-url }}"
+
+        if [ -n "$INPUT_BASE_URL" ]; then
+          RESOLVED_BASE_URL="$INPUT_BASE_URL"
+          echo "Using explicitly provided base-url: $RESOLVED_BASE_URL"
+        elif [ "$PRESET" != "static" ]; then
+          # Qualsiasi preset non-static (es. cloudflare-pages, vercel, ecc.) viene servito alla radice
+          echo "Preset is '$PRESET' (non-static). Defaulting base-url to '/'"
+          RESOLVED_BASE_URL="/"
         elif [ -f "${{ github.workspace }}/CNAME" ] || [ -f "${{ github.action_path }}/public/CNAME" ]; then
-          echo "CNAME detected. Setting BASE_URL to '/'"
-          BASE_URL="/"
+          echo "CNAME detected for static preset. Setting base-url to '/'"
+          RESOLVED_BASE_URL="/"
         elif [[ "${{ github.repository }}" == *.github.io ]]; then
-          echo "GitHub Pages root site (*.github.io) detected. Setting BASE_URL to '/'"
-          BASE_URL="/"
+          echo "GitHub Pages root site (*.github.io) detected. Setting base-url to '/'"
+          RESOLVED_BASE_URL="/"
         else
+          # Preset 'static' e nessun custom domain: rileva il nome del repository per GitHub Pages
           PAGES_INFO=$(curl -s -H "Authorization: Bearer ${{ inputs.github-token }}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ github.repository }}/pages" 2>/dev/null || true)
           CNAME=$(echo "$PAGES_INFO" | jq -r '.cname // empty' 2>/dev/null || true)
 
           if [ -n "$CNAME" ] && [ "$CNAME" != "null" ]; then
-            echo "Custom domain detected via Pages API ($CNAME). Setting BASE_URL to '/'"
-            BASE_URL="/"
+            echo "Custom domain detected via Pages API ($CNAME). Setting base-url to '/'"
+            RESOLVED_BASE_URL="/"
           else
             REPO_NAME="${{ github.event.repository.name }}"
             if [ -z "$REPO_NAME" ]; then
               REPO_NAME=$(basename "${{ github.repository }}")
             fi
-            echo "Standard GitHub repository detected. Setting BASE_URL to '/$REPO_NAME/'"
-            BASE_URL="/$REPO_NAME/"
+            echo "Standard GitHub repository detected for static preset. Setting base-url to '/$REPO_NAME/'"
+            RESOLVED_BASE_URL="/$REPO_NAME/"
           fi
         fi
 
         # Normalizza gli slash (assicura leading e trailing slash corretti)
-        if [[ "$BASE_URL" != "/" && "$BASE_URL" != */ ]]; then
-          BASE_URL="$BASE_URL/"
+        if [[ "$RESOLVED_BASE_URL" != "/" && "$RESOLVED_BASE_URL" != */ ]]; then
+          RESOLVED_BASE_URL="$RESOLVED_BASE_URL/"
         fi
-        if [[ "$BASE_URL" != /* ]]; then
-          BASE_URL="/$BASE_URL"
+        if [[ "$RESOLVED_BASE_URL" != /* ]]; then
+          RESOLVED_BASE_URL="/$RESOLVED_BASE_URL"
         fi
 
-        echo "Resolved BASE_URL: $BASE_URL"
-        echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
+        echo "Resolved BASE_URL: $RESOLVED_BASE_URL"
+        echo "base_url=$RESOLVED_BASE_URL" >> "$GITHUB_OUTPUT"
 
     - name: Build Static Site
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
         NUXT_APP_BASE_URL: ${{ steps.detect-base-url.outputs.base_url }}
+        NITRO_PRESET: ${{ inputs.nitro-preset }}
       run: bun run generate
 
-    - name: Set Action Outputs
+    - name: Export Output to Workspace
       id: set-output
       shell: bash
       run: |
-        echo "output-dir=${{ github.action_path }}/.output/public" >> "$GITHUB_OUTPUT"
+        OUTPUT_SRC="${{ github.action_path }}/.output/public"
+        TARGET_DIST="${{ github.workspace }}/dist"
 
-    - name: Upload Pages Artifact
-      if: ${{ inputs.upload-pages-artifact == 'true' }}
-      uses: actions/upload-pages-artifact@v3
+        mkdir -p "$TARGET_DIST"
+        rsync -a "$OUTPUT_SRC/" "$TARGET_DIST/"
+
+        echo "output-dir=$TARGET_DIST" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Build Artifact
+      if: ${{ inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
       with:
-        path: ${{ github.action_path }}/.output/public
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.set-output.outputs.output-dir }}
+        if-no-files-found: error
 
