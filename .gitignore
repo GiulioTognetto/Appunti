@@ -22,3 +22,12 @@ logs
 .env
 .env.*
 !.env.example
+
+# Local content notes (ignore notes cloned or created for local testing)
+content/*
+!content/.gitkeep
+
+# Local content notes (ignore notes cloned or created for local testing)
+content/*
+!content/.gitkeep
+

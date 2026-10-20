@@ -1,0 +1,185 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+:root {
+  --notion-bg: #ffffff;
+  --notion-sidebar-bg: #fbfbfa;
+  --notion-text: #37352f;
+  --notion-text-muted: #787774;
+  --notion-border: rgba(55, 53, 47, 0.09);
+  --notion-code-bg: rgba(135, 131, 120, 0.15);
+  --notion-code-text: #eb5757;
+}
+
+.dark {
+  --notion-bg: #191919;
+  --notion-sidebar-bg: #202020;
+  --notion-text: #e3e2e0;
+  --notion-text-muted: #9b9a97;
+  --notion-border: rgba(255, 255, 255, 0.094);
+  --notion-code-bg: rgba(255, 255, 255, 0.08);
+  --notion-code-text: #ff7b72;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  background-color: var(--notion-bg);
+  color: var(--notion-text);
+  line-height: 1.65;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Notion-style Typography for Markdown Content */
+.notion-prose {
+  color: var(--notion-text);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.notion-prose h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--notion-border);
+  color: inherit;
+}
+
+.notion-prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  color: inherit;
+}
+
+.notion-prose h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+  color: inherit;
+}
+
+.notion-prose p {
+  margin-top: 0.65rem;
+  margin-bottom: 0.65rem;
+  line-height: 1.7;
+}
+
+.notion-prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.notion-prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.notion-prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.notion-prose blockquote {
+  border-left: 3px solid var(--notion-text);
+  padding-left: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: var(--notion-text-muted);
+  font-style: italic;
+}
+
+/* Notion Inline Code */
+.notion-prose :not(pre) > code {
+  background-color: var(--notion-code-bg);
+  color: var(--notion-code-text);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Notion Code Block */
+.notion-prose pre {
+  background-color: var(--notion-sidebar-bg);
+  border: 1px solid var(--notion-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.notion-prose pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Notion Callouts */
+.notion-prose .callout,
+.notion-prose blockquote.callout {
+  display: flex;
+  gap: 0.75rem;
+  background-color: var(--notion-sidebar-bg);
+  border: 1px solid var(--notion-border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-style: normal;
+}
+
+/* Notion Tables */
+.notion-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.notion-prose th {
+  border: 1px solid var(--notion-border);
+  background-color: var(--notion-sidebar-bg);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.notion-prose td {
+  border: 1px solid var(--notion-border);
+  padding: 0.5rem 0.75rem;
+}
+
+/* Notion Horizontal Rule */
+.notion-prose hr {
+  border: 0;
+  border-top: 1px solid var(--notion-border);
+  margin: 2rem 0;
+}
+
+/* Notion Images */
+.notion-prose img {
+  border-radius: 6px;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem auto;
+  display: block;
+}
+

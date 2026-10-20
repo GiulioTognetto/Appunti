@@ -5,10 +5,11 @@ export default defineContentConfig({
     content: defineCollection({
       type: 'page',
       source: {
+        cwd: process.env.CONTENT_DIR || undefined,
         include: '**',
         exclude: [
-          '**/.obsidian/**',
-          '**/.*'
+          '**/.*',
+          'LICENSE',
         ]
       },
     }),

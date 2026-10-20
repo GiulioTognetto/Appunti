@@ -1,7 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+import { setupDevVaultSymlink } from './config/devVaultSymlink'
 import remarkWikiLink from 'remark-wiki-link'
 import { wikiLinkOptions } from './config/remarkWikiLink'
+
+// Se siamo in dev e NOTES_VAULT_PATH è impostato, collega temporaneamente la cartella content/
+const cleanupSymlink = setupDevVaultSymlink()
 
 export default defineNuxtConfig({
   modules: [
@@ -12,6 +16,7 @@ export default defineNuxtConfig({
     '@nuxt/scripts',
     '@nuxt/ui',
   ],
+  css: ['~/assets/css/main.css'],
   devtools: { enabled: true },
   compatibilityDate: '2024-04-03',
 
@@ -24,7 +29,6 @@ export default defineNuxtConfig({
       markdown: {
         remarkPlugins: {
           'remark-wiki-link': {
-            src: remarkWikiLink,
             options: wikiLinkOptions
           }
         }
@@ -43,9 +47,15 @@ export default defineNuxtConfig({
     routeRules: {
       '/**': {
         headers: {
-          'Content-Security-Policy': "default-src 'self'; connect-src 'self' https:;"
+          'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: ws: wss:;"
         }
       }
+    }
+  },
+
+  hooks: {
+    close: () => {
+      cleanupSymlink?.()
     }
   }
 })
