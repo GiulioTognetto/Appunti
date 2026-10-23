@@ -10,6 +10,7 @@ export default defineContentConfig({
         exclude: [
           '**/.*',
           "templates/**",
+          "scripts/**",
           "**/attachments/**",
           'LICENSE',
         ]
