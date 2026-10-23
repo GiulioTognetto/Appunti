@@ -26,7 +26,7 @@ const computedHref = computed(() => {
 
   // 2. Separa query e hash dal percorso
   const [pathAndQuery, hash] = props.href.split('#')
-  const [pathname, query] = pathAndQuery.split('?')
+  const [pathname, query] = (pathAndQuery ?? '').split('?')
 
   // 3. Rimuovi estensione .md e suffisso /index
   let cleanPath = (pathname || '')

@@ -1,7 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
 import { setupDevVaultSymlink } from './config/devVaultSymlink'
-import remarkWikiLink from 'remark-wiki-link'
 import { wikiLinkOptions } from './config/remarkWikiLink'
 
 // Se siamo in dev e NOTES_VAULT_PATH è impostato, collega temporaneamente la cartella content/

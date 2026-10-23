@@ -9,6 +9,8 @@ export default defineContentConfig({
         include: '**',
         exclude: [
           '**/.*',
+          "templates/**",
+          "**/attachments/**",
           'LICENSE',
         ]
       },

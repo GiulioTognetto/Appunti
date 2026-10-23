@@ -1,200 +1,3 @@
-<!-- app/components/AppSidebar.vue -->
-<script setup lang="ts">
-import type { TreeItem } from '@nuxt/ui'
-
-const { isOpen, close } = useSidebar()
-const route = useRoute()
-
-// Recupera tutte le note per la struttura ad albero
-const { data: allNotes } = await useAsyncData('all-notes-tree', () => {
-  return queryCollection('content')
-    .select('path', 'title', 'stem')
-    .all()
-})
-
-const searchQuery = ref('')
-const expandedNodes = ref<string[]>([])
-
-interface CustomTreeItem extends TreeItem {
-  path?: string
-  emoji?: string
-  children?: CustomTreeItem[]
-}
-
-// Algoritmo che trasforma la lista delle note in albero gerarchico per UTree
-function buildNoteTree(notes: any[]): CustomTreeItem[] {
-  const rootNodes: CustomTreeItem[] = []
-  const folderMap = new Map<string, CustomTreeItem>()
-
-  // 1. Mappa tutti i file index.md associati alle cartelle
-  const folderIndexNotes = new Map<string, any>()
-
-  for (const note of notes) {
-    const isRootIndex = note.path === '/' || note.stem === 'index'
-    if (isRootIndex) continue
-
-    const cleanPath = note.path.replace(/^\//, '')
-    const parts = cleanPath.split('/')
-    const isFolderIndex = parts[parts.length - 1] === 'index' || note.stem?.endsWith('/index')
-
-    if (isFolderIndex) {
-      const folderKey = parts.slice(0, -1).join('/')
-      folderIndexNotes.set(folderKey, note)
-    }
-  }
-
-  const sortedNotes = [...notes].sort((a, b) => a.path.localeCompare(b.path))
-
-  // 2. Home / Index principale (in cima all'albero)
-  const homeNote = sortedNotes.find(n => n.path === '/' || n.stem === 'index')
-  if (homeNote) {
-    rootNodes.push({
-      label: homeNote.title || 'Home',
-      icon: 'i-lucide-home',
-      emoji: homeNote.icon && !homeNote.icon.startsWith('i-') ? homeNote.icon : undefined,
-      path: '/',
-      value: '/',
-      onSelect: () => handleNavigate('/')
-    })
-  }
-
-  // 3. Elabora tutte le altre note
-  for (const note of sortedNotes) {
-    if (note.path === '/' || note.stem === 'index') continue
-
-    const cleanPath = note.path.replace(/^\//, '')
-    const parts = cleanPath.split('/')
-    const isIndex = parts[parts.length - 1] === 'index' || note.stem?.endsWith('/index')
-
-    // Se è l'index.md di una cartella, lo associamo direttamente alla cartella stessa (non come file duplicato)
-    if (isIndex) continue
-
-    const fileName = parts[parts.length - 1]
-    const folderParts = parts.slice(0, -1)
-
-    let currentChildren = rootNodes
-    let accumulatedKey = ''
-    let accumulatedPath = ''
-
-    // Costruisci le cartelle padre
-    for (let i = 0; i < folderParts.length; i++) {
-      const folder = folderParts[i]
-      accumulatedKey = accumulatedKey ? `${accumulatedKey}/${folder}` : folder
-      accumulatedPath += `/${folder}`
-
-      let folderNode = folderMap.get(accumulatedKey)
-
-      if (!folderNode) {
-        // Controlla se questa cartella ha un file index.md!
-        const indexNote = folderIndexNotes.get(accumulatedKey)
-
-        const folderLabel = indexNote?.title || (folder.charAt(0).toUpperCase() + folder.slice(1).replace(/-/g, ' '))
-        const folderEmoji = indexNote?.icon && !indexNote.icon.startsWith('i-') ? indexNote.icon : undefined
-        const folderIcon = indexNote?.icon && indexNote.icon.startsWith('i-') ? indexNote.icon : undefined
-
-        // Se la cartella ha un index.md, il suo path punta alla pagina dell'index
-        const folderPath = indexNote
-          ? (indexNote.path.endsWith('/index') ? indexNote.path.slice(0, -6) || '/' : indexNote.path)
-          : undefined
-
-        folderNode = {
-          label: folderLabel,
-          icon: folderIcon,
-          emoji: folderEmoji,
-          path: folderPath,
-          value: accumulatedPath,
-          defaultExpanded: false, // Tutto parte chiuso come richiesto
-          children: []
-        }
-
-        folderMap.set(accumulatedKey, folderNode)
-        currentChildren.push(folderNode)
-      }
-
-      currentChildren = folderNode.children!
-    }
-
-    // Aggiungi la nota come elemento foglia
-    const emoji = note.icon && !note.icon.startsWith('i-') ? note.icon : undefined
-    const icon = note.icon && note.icon.startsWith('i-') ? note.icon : 'i-lucide-file-text'
-
-    currentChildren.push({
-      label: note.title || fileName.replace(/-/g, ' '),
-      icon,
-      emoji,
-      path: note.path,
-      value: note.path,
-      onSelect: () => handleNavigate(note.path)
-    })
-  }
-
-  // 4. Cartelle che contengono SOLTANTO un file index.md (senza altre note)
-  for (const [folderKey, indexNote] of folderIndexNotes.entries()) {
-    if (!folderMap.has(folderKey)) {
-      const parts = folderKey.split('/')
-      const folder = parts[parts.length - 1]
-      const folderPath = indexNote.path.endsWith('/index') ? indexNote.path.slice(0, -6) || '/' : indexNote.path
-
-      rootNodes.push({
-        label: indexNote.title || (folder.charAt(0).toUpperCase() + folder.slice(1).replace(/-/g, ' ')),
-        icon: indexNote.icon && indexNote.icon.startsWith('i-') ? indexNote.icon : 'i-lucide-file-text',
-        emoji: indexNote.icon && !indexNote.icon.startsWith('i-') ? indexNote.icon : undefined,
-        path: folderPath,
-        value: folderPath,
-        onSelect: () => handleNavigate(folderPath)
-      })
-    }
-  }
-
-  return rootNodes
-}
-
-function handleNavigate(path: string) {
-  navigateTo(path)
-  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-    close()
-  }
-}
-
-// Gestione selezione nodo nell'albero
-function onTreeSelect(event: any, item: CustomTreeItem) {
-  if (item.path) {
-    handleNavigate(item.path)
-  }
-}
-
-// Filtra l'albero per la barra di ricerca
-function filterTree(nodes: CustomTreeItem[], query: string): CustomTreeItem[] {
-  const result: CustomTreeItem[] = []
-
-  for (const node of nodes) {
-    const labelMatch = (node.label || '').toLowerCase().includes(query)
-    const filteredChildren = node.children ? filterTree(node.children, query) : []
-
-    if (labelMatch || filteredChildren.length > 0) {
-      result.push({
-        ...node,
-        defaultExpanded: true,
-        children: filteredChildren.length > 0 ? filteredChildren : node.children
-      })
-    }
-  }
-
-  return result
-}
-
-const treeItems = computed(() => {
-  if (!allNotes.value) return []
-  const fullTree = buildNoteTree(allNotes.value)
-
-  if (!searchQuery.value.trim()) {
-    return fullTree
-  }
-
-  return filterTree(fullTree, searchQuery.value.toLowerCase().trim())
-})
-</script>
-
 <template>
   <div>
     <!-- Mobile Backdrop -->
@@ -262,7 +65,7 @@ const treeItems = computed(() => {
             }"
             @select="onTreeSelect"
           >
-            <!-- Slot icona: emoji personalizzata o cartella/file -->
+            <!-- Slot icona: visualizza emoji o icona file/cartella -->
             <template #item-leading="{ item, expanded }">
               <span v-if="(item as any).emoji" class="text-sm shrink-0 mr-1 select-none">
                 {{ (item as any).emoji }}
@@ -279,16 +82,26 @@ const treeItems = computed(() => {
               />
             </template>
 
-            <!-- Slot label con evidenziazione nota attiva -->
+            <!-- Slot label: cliccare sul TESTO naviga alla nota/index -->
             <template #item-label="{ item }">
               <span
-                class="truncate text-xs"
+                class="truncate text-xs select-none hover:underline cursor-pointer"
                 :class="{
                   'font-semibold text-neutral-950 dark:text-white': route.path === (item as any).path
                 }"
+                @click.stop="onItemLabelClick(item as CustomTreeItem)"
               >
                 {{ item.label }}
               </span>
+            </template>
+
+            <!-- Slot trailing: freccetta visibile per indicare se la cartella è aperta/chiusa -->
+            <template #item-trailing="{ item, expanded }">
+              <UIcon
+                v-if="item.children?.length"
+                :name="expanded ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                class="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 ml-auto shrink-0 transition-transform"
+              />
             </template>
           </UTree>
         </template>
@@ -306,3 +119,235 @@ const treeItems = computed(() => {
     </aside>
   </div>
 </template>
+
+<script setup lang="ts">
+import type { TreeItem } from '@nuxt/ui'
+
+const { isOpen, close } = useSidebar()
+const route = useRoute()
+
+// Recupera tutte le note per la struttura ad albero
+const { data: allNotes } = await useAsyncData('all-notes-tree', () => {
+  return queryCollection('content')
+    .select('path', 'title', 'stem')
+    .all()
+})
+
+const searchQuery = ref('')
+const expandedNodes = ref<string[]>([])
+
+interface CustomTreeItem extends TreeItem {
+  path?: string
+  emoji?: string
+  children?: CustomTreeItem[]
+}
+
+// Funzione ricorsiva di ordinamento alfabetico (prima cartelle, poi file)
+function sortTreeItems(items: CustomTreeItem[]): CustomTreeItem[] {
+  return items
+    .map(item => {
+      if (item.children && item.children.length > 0) {
+        return {
+          ...item,
+          children: sortTreeItems(item.children)
+        }
+      }
+      return item
+    })
+    .sort((a, b) => {
+      const aIsFolder = Array.isArray(a.children) && a.children.length > 0
+      const bIsFolder = Array.isArray(b.children) && b.children.length > 0
+
+      if (aIsFolder && !bIsFolder) return -1
+      if (!aIsFolder && bIsFolder) return 1
+
+      return (a.label || '').localeCompare(b.label || '', undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    })
+}
+
+// Costruzione gerarchica dell'albero delle note
+function buildNoteTree(notes: any[]): CustomTreeItem[] {
+  const rootNodes: CustomTreeItem[] = []
+  const folderMap = new Map<string, CustomTreeItem>()
+  const folderIndexNotes = new Map<string, any>()
+
+  // 1. Mappa i file index delle cartelle (chiave: path della cartella)
+  for (const note of notes) {
+    if (note.path === '/' || note.stem === 'index') continue
+
+    const isIndex = note.stem?.endsWith('/index') || note.path.endsWith('/index')
+    if (isIndex) {
+      const folderKey = note.stem.slice(0, -6).replace(/^\//, '')
+      folderIndexNotes.set(folderKey, note)
+    }
+  }
+
+  // 2. Home / Index principale
+  const homeNote = notes.find(n => n.path === '/' || n.stem === 'index')
+  if (homeNote) {
+    rootNodes.push({
+      label: homeNote.title || 'Home',
+      icon: 'i-lucide-home',
+      emoji: homeNote.icon && !homeNote.icon.startsWith('i-') ? homeNote.icon : undefined,
+      path: '/',
+      value: '/',
+    })
+  }
+
+  // 3. Costruzione della gerarchia
+  for (const note of notes) {
+    if (note.path === '/' || note.stem === 'index') continue
+
+    const isIndex = note.stem?.endsWith('/index') || note.path.endsWith('/index')
+    if (isIndex) continue
+
+    const cleanStem = note.stem.replace(/^\//, '')
+    const parts = cleanStem.split('/')
+    const fileName = parts[parts.length - 1]
+    const folderParts = parts.slice(0, -1)
+
+    let currentChildren = rootNodes
+    let accumulatedKey = ''
+
+    for (let i = 0; i < folderParts.length; i++) {
+      const folder = folderParts[i]
+      accumulatedKey = accumulatedKey ? `${accumulatedKey}/${folder}` : folder
+
+      let folderNode = folderMap.get(accumulatedKey)
+
+      if (!folderNode) {
+        const indexNote = folderIndexNotes.get(accumulatedKey)
+
+        const folderLabel = indexNote?.title || (folder.charAt(0).toUpperCase() + folder.slice(1).replace(/-/g, ' '))
+        const folderEmoji = indexNote?.icon && !indexNote.icon.startsWith('i-') ? indexNote.icon : undefined
+        const folderIcon = indexNote?.icon && indexNote.icon.startsWith('i-') ? indexNote.icon : undefined
+        const folderPath = indexNote ? indexNote.path : undefined
+
+        folderNode = {
+          label: folderLabel,
+          icon: folderIcon,
+          emoji: folderEmoji,
+          path: folderPath,
+          value: accumulatedKey,
+          children: []
+        }
+
+        folderMap.set(accumulatedKey, folderNode)
+        currentChildren.push(folderNode)
+      }
+
+      currentChildren = folderNode.children!
+    }
+
+    const emoji = note.icon && !note.icon.startsWith('i-') ? note.icon : undefined
+    const icon = note.icon && note.icon.startsWith('i-') ? note.icon : 'i-lucide-file-text'
+
+    currentChildren.push({
+      label: note.title || fileName.replace(/-/g, ' '),
+      icon,
+      emoji,
+      path: note.path,
+      value: note.path
+    })
+  }
+
+  // 4. Cartelle che contengono esclusivamente un file index.md
+  for (const [folderKey, indexNote] of folderIndexNotes.entries()) {
+    if (!folderMap.has(folderKey)) {
+      const parts = folderKey.split('/')
+      let currentChildren = rootNodes
+      let accumulatedKey = ''
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i] ?? ''
+        accumulatedKey = accumulatedKey ? `${accumulatedKey}/${part}` : part
+
+        let folderNode = folderMap.get(accumulatedKey)
+
+        if (!folderNode) {
+          const isTarget = accumulatedKey === folderKey
+          const currentIdxNote = isTarget ? indexNote : folderIndexNotes.get(accumulatedKey)
+
+          folderNode = {
+            label: currentIdxNote?.title || (part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' ')),
+            icon: currentIdxNote?.icon && currentIdxNote.icon.startsWith('i-') ? currentIdxNote.icon : undefined,
+            emoji: currentIdxNote?.icon && !currentIdxNote.icon.startsWith('i-') ? currentIdxNote.icon : undefined,
+            path: currentIdxNote ? currentIdxNote.path : undefined,
+            value: accumulatedKey,
+            children: []
+          }
+
+          folderMap.set(accumulatedKey, folderNode)
+          currentChildren.push(folderNode)
+        }
+
+        currentChildren = folderNode.children!
+      }
+    }
+  }
+
+  const home = rootNodes.find(n => n.value === '/')
+  const remainingNodes = rootNodes.filter(n => n.value !== '/')
+
+  const sortedRemaining = sortTreeItems(remainingNodes)
+
+  return home ? [home, ...sortedRemaining] : sortedRemaining
+}
+
+// Click sul TESTO: esegue la navigazione diretta interrompendo l'evento di selezione di UTree
+function onItemLabelClick(item: CustomTreeItem) {
+  if (item.path) {
+    handleNavigate(item.path)
+  }
+}
+
+// Click sull'intera riga (evento nativo di UTree):
+// Se è un file singolo naviga, se è una cartella lascia gestire l'espansione/compressione a UTree
+function onTreeSelect(event: any, item: CustomTreeItem) {
+  if (!item.children || item.children.length === 0) {
+    if (item.path) {
+      handleNavigate(item.path)
+    }
+  }
+}
+
+function handleNavigate(path: string) {
+  navigateTo(path)
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    close()
+  }
+}
+
+// Filtra l'albero per la barra di ricerca
+function filterTree(nodes: CustomTreeItem[], query: string): CustomTreeItem[] {
+  const result: CustomTreeItem[] = []
+
+  for (const node of nodes) {
+    const labelMatch = (node.label || '').toLowerCase().includes(query)
+    const filteredChildren = node.children ? filterTree(node.children, query) : []
+
+    if (labelMatch || filteredChildren.length > 0) {
+      result.push({
+        ...node,
+        children: filteredChildren.length > 0 ? filteredChildren : node.children
+      })
+    }
+  }
+
+  return result
+}
+
+const treeItems = computed(() => {
+  if (!allNotes.value) return []
+  const fullTree = buildNoteTree(allNotes.value)
+
+  if (!searchQuery.value.trim()) {
+    return fullTree
+  }
+
+  return filterTree(fullTree, searchQuery.value.toLowerCase().trim())
+})
+</script>
